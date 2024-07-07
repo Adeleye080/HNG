@@ -118,6 +118,15 @@ def log_in():
 
     # get user from database
     user = storage.get_one(obj='user', filter={"email": email})
+    
+    if not user:
+        return jsonify(
+            {
+                "status": "Not found",
+                "message": "User does not exist",
+                "statusCode": 404
+            }
+        ), 404
 
     # check if user password match
     if not user.check_password(password):
@@ -272,16 +281,18 @@ def user_create_og():
     user = storage.get_one(obj='user', filter={'userId': user_id})
     # create new org
     org = Organization(name=name, description=description)
+    
     # add org to user's org collection
     user.organizations.append(org)
     user.save()
     
-    print(dir(org))
+    org.name # this line loads the attrs, I dont know why its like that, its most likelya python 3.10.12 bug
+    org = org.to_dict()
 
     return jsonify({
         "status": "success",
         "message": "Organisation created successfully",
-        "data": org.to_dict()
+        "data": org
     }), 201
 
 
