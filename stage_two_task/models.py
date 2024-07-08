@@ -53,6 +53,8 @@ class User(Base):
             del dic['_sa_instance_state']
         if 'password' in dic:
             del dic['password']
+        if 'organizations' in dic:
+            del dic['organizations']
 
         return dic
 
@@ -97,6 +99,8 @@ class Organization(Base):
         dic = dict(self.__dict__)
         if '_sa_instance_state' in dic:
             del dic['_sa_instance_state']
+        if 'users' in dic:
+            del dic['users']
 
         return dic
 
