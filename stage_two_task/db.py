@@ -20,8 +20,8 @@ class Database:
         # Database credentials
         username = getenv('db_user')
         password = getenv('db_pass')
-        host = 'localhost'
-        port = '5432'
+        host = getenv('db_host')
+        port = getenv('db_port')
         database = getenv('db')
 
         # Create an engine
