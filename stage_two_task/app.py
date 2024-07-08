@@ -6,6 +6,7 @@ from flask_jwt_extended import (
     get_jwt_identity,
     JWTManager,
 )
+from datetime import timedelta
 from models import User, Organization
 from dotenv import load_dotenv
 from os import getenv
@@ -85,7 +86,8 @@ def create_user():
             "statusCode": 400
         }), 400
 
-    access_token = create_access_token(identity=new_user.userId)
+    expires = timedelta(days=2)
+    access_token = create_access_token(identity=new_user.userId, expires_delta=expires)
 
     response = {
         'status': 'success',
@@ -96,7 +98,7 @@ def create_user():
         }
     }
 
-    return jsonify(response), 200
+    return jsonify(response), 201
 
 
 @app.post('/auth/login')
@@ -138,7 +140,8 @@ def log_in():
             }
         ), 401
 
-    access_token = create_access_token(identity=user.userId)
+    expires = timedelta(days=2)
+    access_token = create_access_token(identity=user.userId, expires_delta=expires)
 
     response = {
         'status': 'success',
@@ -158,21 +161,37 @@ def get_user(id):
     """
     Retrieve single user data
     """
-    id_in_jwt = get_jwt_identity()
+    requester_id = get_jwt_identity()
 
-    # verify that client is owner of account
-    if id_in_jwt != id:
-        return jsonify(
-            {
-                "status": "Bad request",
-                "message": "Authentication failed",
-                "statusCode": 401
-            }
-        ), 401
-
+    # retrieve requester data
+    requester = storage.get_one(obj='user', filter={'userId': requester_id})
     # retrieve user data
     user = storage.get_one(obj='user', filter={'userId': id})
-
+    
+    if not requester or not user:
+        return jsonify(
+            {
+                "status": "Not found",
+                "message": f"Requester or user with ID {id} not found",
+                "statusCode": 404
+            }
+        ), 404
+    
+    requester_org_ids = {org.orgId for org in requester.organizations}
+    target_org_ids = {org.orgId for org in user.organizations}
+    
+    # Check if there is any common organization
+    common_org_ids = requester_org_ids.intersection(target_org_ids)
+    
+    if not common_org_ids:
+        return jsonify(
+            {
+                "status": "Forbidden",
+                "message": "No common organisation",
+                "statusCode": 403
+            }
+        ), 403
+    
     response = {
         'status': 'success',
         "message": "Request successful",
@@ -319,6 +338,14 @@ def add_user_to_org(orgId):
         ), 404
     
     user = storage.get_one(obj='user', filter={'userId': user_id})
+    if not user:
+        return jsonify(
+            {
+                "status": "Not found",
+                "message": "User does not exist",
+                "statusCode": 404
+            }
+        ), 404
     
     if org in user.organizations:
         return jsonify(
